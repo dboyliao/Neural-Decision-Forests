@@ -8,6 +8,7 @@ from torch.autograd import Variable
 
 import dataset
 import ndf
+from my_tree import MyTree
 
 
 def parse_arg():
@@ -103,6 +104,7 @@ def prepare_model(opt):
         tree_feature_rate=opt.tree_feature_rate,
         n_class=opt.n_class,
         jointly_training=opt.jointly_training,
+        tree_cls=MyTree,
     )
     model = ndf.NeuralDecisionForest(feat_layer, forest)
 

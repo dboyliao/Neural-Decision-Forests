@@ -2,36 +2,37 @@ from functools import reduce
 
 import numpy as np
 import torch
-from torch import nn
+from torch import einsum, nn
+from torch.nn import functional as F
 
 
 def batch_kron_prod(a, b):
     assert a.ndim == 2
     assert b.ndim == 2
-    kron = torch.einsum("bj,bk->bjk", a, b)
+    kron = einsum("bj,bk->bjk", a, b)
     out_dim = reduce(lambda a, b: a * b, kron.shape[1:], 1)
     return kron.view(-1, out_dim)
 
 
 class MyTree(nn.Module):
     def __init__(
-        self, depth, in_dim, out_class, sub_features_rate=0.5, jointly_training=True
+        self, depth, in_dim, sub_features_rate, out_class, jointly_training=True
     ):
         super().__init__()
-
         n_leaf = 2 ** depth
         n_nodes = 2 ** depth - 1
         n_subfeats = int(sub_features_rate * in_dim)
         # used features in this tree
         onehot = np.eye(in_dim)
-        using_idx = np.random.choice(np.arange(in_dim), n_subfeats, replace=False)
+        using_idx = np.random.choice(in_dim, n_subfeats, replace=False)
         feature_mask = onehot[using_idx].T
         self.feature_mask = nn.Parameter(
             torch.from_numpy(feature_mask).type(torch.FloatTensor),
             requires_grad=False,
         )
         # leaf label distribution
-        if jointly_training:
+        self.jointly_training = jointly_training
+        if self.jointly_training:
             pi = np.random.rand(n_leaf, out_class)
             self.pi = nn.Parameter(
                 torch.from_numpy(pi).type(torch.FloatTensor), requires_grad=True
@@ -50,22 +51,45 @@ class MyTree(nn.Module):
         probs = 1
         start_idx = 0
         end_idx = 1
-        while end_idx != self.n_nodes:
+        while end_idx <= self.n_nodes:
             current_layer_probs = nodes_prob[:, start_idx:end_idx]
             if start_idx == 0:
-                probs = torch.cat([current_layer_probs, 1 - current_layer_probs], dim=1)
+                probs = torch.cat(
+                    [current_layer_probs, 1 - current_layer_probs], dim=1
+                )  # B x 2
             else:
-                prob_current_level = torch.cat(
+                probs_this_level = torch.cat(
                     [
                         nodes_prob[:, start_idx:end_idx, None],
                         1 - nodes_prob[:, start_idx:end_idx, None],
                     ],
                     dim=-1,
-                ).view(batch_size, -1)
-                probs = batch_kron_prod(probs, prob_current_level)
+                ).view(
+                    batch_size, -1
+                )  # B x (2 * probs.shape[1])
+                probs = probs.repeat_interleave(2, dim=-1) * probs_this_level
             start_idx = end_idx
             end_idx = end_idx * 2 + 1
         return probs
+
+    def get_pi(self):
+        if self.jointly_training:
+            return F.softmax(self.pi, dim=-1)
+        else:
+            return self.pi
+
+    @staticmethod
+    def cal_prob(mu, pi):
+        """
+        :param mu [batch_size,n_leaf]
+        :param pi [n_leaf,n_class]
+        :return: label probability [batch_size,n_class]
+        """
+        p = torch.mm(mu, pi)
+        return p
+
+    def update_pi(self, new_pi):
+        self.pi.data = new_pi
 
     @property
     def n_leaf(self):
