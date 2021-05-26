@@ -184,12 +184,13 @@ class Forest(nn.Module):
         tree_feature_rate,
         n_class,
         jointly_training,
+        tree_cls=Tree,
     ):
         super(Forest, self).__init__()
         self.trees = nn.ModuleList()
         self.n_tree = n_tree
         for _ in range(n_tree):
-            tree = Tree(
+            tree = tree_cls(
                 tree_depth, n_in_feature, tree_feature_rate, n_class, jointly_training
             )
             self.trees.append(tree)
