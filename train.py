@@ -7,8 +7,9 @@ import torchvision
 from torch.autograd import Variable
 
 import dataset
-import ndf
-from my_tree import MyTree
+import neural_decision_forest as ndf
+from extract_layer import (MNISTFeatureLayer, UCIAdultFeatureLayer,
+                           UCILetterFeatureLayer, UCIYeastFeatureLayer)
 
 
 def parse_arg():
@@ -87,15 +88,15 @@ def prepare_db(opt):
 
 def prepare_model(opt):
     if opt.dataset == "mnist":
-        feat_layer = ndf.MNISTFeatureLayer(opt.feat_dropout)
+        feat_layer = MNISTFeatureLayer(opt.feat_dropout)
     elif opt.dataset == "adult":
-        feat_layer = ndf.UCIAdultFeatureLayer(opt.feat_dropout)
+        feat_layer = UCIAdultFeatureLayer(opt.feat_dropout)
     elif opt.dataset == "letter":
-        feat_layer = ndf.UCILetterFeatureLayer(opt.feat_dropout)
+        feat_layer = UCILetterFeatureLayer(opt.feat_dropout)
     elif opt.dataset == "yeast":
-        feat_layer = ndf.UCIYeastFeatureLayer(opt.feat_dropout)
+        feat_layer = UCIYeastFeatureLayer(opt.feat_dropout)
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f"unknown dataset: {opt.dataset}")
 
     forest = ndf.Forest(
         n_tree=opt.n_tree,
@@ -104,7 +105,6 @@ def prepare_model(opt):
         tree_feature_rate=opt.tree_feature_rate,
         n_class=opt.n_class,
         jointly_training=opt.jointly_training,
-        tree_cls=MyTree,
     )
     model = ndf.NeuralDecisionForest(feat_layer, forest)
 

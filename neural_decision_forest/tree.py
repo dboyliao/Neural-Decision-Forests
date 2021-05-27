@@ -3,8 +3,10 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+__all__ = ["Tree"]
 
-class MyTree(nn.Module):
+
+class Tree(nn.Module):
     def __init__(
         self,
         depth: int,
