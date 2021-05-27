@@ -1,17 +1,7 @@
-from functools import reduce
-
 import numpy as np
 import torch
-from torch import einsum, nn
+from torch import nn
 from torch.nn import functional as F
-
-
-def batch_kron_prod(a, b):
-    assert a.ndim == 2
-    assert b.ndim == 2
-    kron = einsum("bj,bk->bjk", a, b)
-    out_dim = reduce(lambda a, b: a * b, kron.shape[1:], 1)
-    return kron.view(-1, out_dim)
 
 
 class MyTree(nn.Module):
@@ -19,6 +9,9 @@ class MyTree(nn.Module):
         self, depth, in_dim, sub_features_rate, out_class, jointly_training=True
     ):
         super().__init__()
+        self._depth = depth
+        self._in_dim = in_dim
+        self._sub_features_rate = sub_features_rate
         n_leaf = 2 ** depth
         n_nodes = 2 ** depth - 1
         n_subfeats = int(sub_features_rate * in_dim)
@@ -31,8 +24,8 @@ class MyTree(nn.Module):
             requires_grad=False,
         )
         # leaf label distribution
-        self.jointly_training = jointly_training
-        if self.jointly_training:
+        self._jointly_training = jointly_training
+        if jointly_training:
             pi = np.random.rand(n_leaf, out_class)
             self.pi = nn.Parameter(
                 torch.from_numpy(pi).type(torch.FloatTensor), requires_grad=True
@@ -52,10 +45,10 @@ class MyTree(nn.Module):
         start_idx = 0
         end_idx = 1
         while end_idx <= self.n_nodes:
-            current_layer_probs = nodes_prob[:, start_idx:end_idx]
             if start_idx == 0:
+                root_layer_probs = nodes_prob[:, start_idx:end_idx]
                 probs = torch.cat(
-                    [current_layer_probs, 1 - current_layer_probs], dim=1
+                    [root_layer_probs, 1 - root_layer_probs], dim=1
                 )  # B x 2
             else:
                 probs_this_level = torch.cat(
@@ -90,6 +83,33 @@ class MyTree(nn.Module):
 
     def update_pi(self, new_pi):
         self.pi.data = new_pi
+
+    def extra_repr(self) -> str:
+        return "\n".join(
+            [
+                f"depth: {self.depth}",
+                f"in_dim: {self.in_dim}",
+                f"sub_features_rate: {self.sub_features_rate}",
+                f"out_class: {self.n_class}",
+                f"jointly_training: {self.jointly_training}",
+            ]
+        )
+
+    @property
+    def jointly_training(self):
+        return self._jointly_training
+
+    @property
+    def depth(self):
+        return self._depth
+
+    @property
+    def in_dim(self):
+        return self._in_dim
+
+    @property
+    def sub_features_rate(self):
+        return self._sub_features_rate
 
     @property
     def n_leaf(self):

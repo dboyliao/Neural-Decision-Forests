@@ -260,7 +260,12 @@ def main():
     db = prepare_db(opt)
     model = prepare_model(opt)
     optim = prepare_optim(model, opt)
-    train(model, optim, db, opt)
+    try:
+        train(model, optim, db, opt)
+    except KeyboardInterrupt:
+        print("keyboard interrupted by user...")
+    finally:
+        torch.save(model, "neural_forest.pt")
 
 
 if __name__ == "__main__":
