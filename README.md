@@ -17,6 +17,27 @@ MNIST, UCI_Adult, UCI_Letter and UCI_Yeast datasets are available. For datasets 
 - numpy
 - sklearn
 
+# Installation
+
+## `pipenv`
+
+```bash
+# after cloning the repo
+$ cd Neural-Decision-Forests
+$ pipenv install -d
+```
+
+## `pip`
+
+```bash
+# after cloning the repo
+$ cd Neural-Decision-Forests
+$ pip install -e .
+```
+or
+```bash
+$ pip install git+https://github.com/dboyliao/Neural-Decision-Forests.git
+```
 
 # Usage
  ```
