@@ -6,9 +6,18 @@ from torch.nn import functional as F
 
 class MyTree(nn.Module):
     def __init__(
-        self, depth, in_dim, sub_features_rate, out_class, jointly_training=True
+        self,
+        depth: int,
+        in_dim: int,
+        sub_features_rate: float,
+        out_class: int,
+        jointly_training: bool = True,
     ):
         super().__init__()
+        assert depth > 0, f"invalid depth: {depth}"
+        assert in_dim > 0, f"invalid input dimensions: {in_dim}"
+        assert sub_features_rate > 0, f"invalid sub features rate: {sub_features_rate}"
+        assert out_class > 0, f"invalid output classes: {out_class}"
         self._depth = depth
         self._in_dim = in_dim
         self._sub_features_rate = sub_features_rate
@@ -41,26 +50,22 @@ class MyTree(nn.Module):
         batch_size = x.shape[0]
         features = torch.mm(x, self.feature_mask)
         nodes_prob = self.decision(features)  # B x num_nodes
-        probs = 1
-        start_idx = 0
-        end_idx = 1
+
+        root_layer_probs = nodes_prob[:, 0:1]
+        probs = torch.cat([root_layer_probs, 1 - root_layer_probs], dim=1)  # B x 2
+        start_idx = 1
+        end_idx = 3
         while end_idx <= self.n_nodes:
-            if start_idx == 0:
-                root_layer_probs = nodes_prob[:, start_idx:end_idx]
-                probs = torch.cat(
-                    [root_layer_probs, 1 - root_layer_probs], dim=1
-                )  # B x 2
-            else:
-                probs_this_level = torch.cat(
-                    [
-                        nodes_prob[:, start_idx:end_idx, None],
-                        1 - nodes_prob[:, start_idx:end_idx, None],
-                    ],
-                    dim=-1,
-                ).view(
-                    batch_size, -1
-                )  # B x (2 * probs.shape[1])
-                probs = probs.repeat_interleave(2, dim=-1) * probs_this_level
+            probs_this_level = torch.cat(
+                [
+                    nodes_prob[:, start_idx:end_idx, None],
+                    1 - nodes_prob[:, start_idx:end_idx, None],
+                ],
+                dim=-1,
+            ).view(
+                batch_size, -1
+            )  # B x (2 * probs.shape[1])
+            probs = probs.repeat_interleave(2, dim=-1) * probs_this_level
             start_idx = end_idx
             end_idx = end_idx * 2 + 1
         return probs

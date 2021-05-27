@@ -180,11 +180,6 @@ def train(model, optim, db, opt):
                                 torch.mul(torch.mul(_target, _pi), _mu) / _prob
                             )  # [batch_size,n_leaf,n_class]
                             new_pi += torch.sum(_new_pi, dim=0)
-                        # test
-                        # import numpy as np
-                        # if np.any(np.isnan(new_pi.cpu().numpy())):
-                        #    print(new_pi)
-                        # test
                         new_pi = F.softmax(Variable(new_pi), dim=1).data
                         tree.update_pi(new_pi)
 
